@@ -1,17 +1,35 @@
-const { ApolloServer } = require('apollo-server');
-const typeDefs = require('./graphql/schema');
-const resolvers = require('./graphql/resolvers');
-const { connectProducer } = require('./config/kafka');
+import { ApolloServer } from "@apollo/server";
+import { startStandaloneServer } from "@apollo/server/standalone";
+import { connectProducer } from "./config/kafka.js";
+import typeDefs from "./graphql/schema.js";
+import resolvers from "./graphql/resolvers.js";
+import { getUserFromToken } from "./middleware/authMiddleware.js";
 
-const startServer = async () => {
-  await connectProducer(); 
+try {
+  await connectProducer();
+  console.log("Kafka connected");
+} catch (err) {
+  console.log("Kafka not running, skipping...");
+}
 
-  const server = new ApolloServer({
-    typeDefs,
-    resolvers,
-  });
+const server = new ApolloServer({
+  typeDefs,
+  resolvers,
+  introspection: true,
+});
 
-  server.listen().then(({ url }) => {
-    console.log(`🚀 Server ready at ${url}`);
-  });
-};
+const { url } = await startStandaloneServer(server, {
+  listen: { port: 4000 },
+
+  context: async ({ req }) => {
+    const token = req.headers.authorization || "";
+
+    const user = getUserFromToken(token);
+
+    return {
+      user, 
+    };
+  },
+});
+
+console.log(`🚀 Server ready at ${url}`);

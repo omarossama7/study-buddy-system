@@ -6,58 +6,47 @@ const {
   deleteSlot,
 } = require('../services/availability.service');
 
+const formatSlot = (slot) => ({
+  ...slot,
+  date: new Date(slot.date).toISOString(),
+  startTime: new Date(slot.startTime).toISOString(),
+  endTime: new Date(slot.endTime).toISOString(),
+});
+
 const resolvers = {
   Query: {
-    getAvailability: async (_, { userId }) => {
+    getAvailability: async (_, __, context) => {
       try {
-        const slots = await getAllSlots(userId);
+        if (!context.user) {
+          throw new Error("Unauthorized");
+        }
 
-        return slots.map((slot) => ({
-          ...slot,
-          date: new Date(slot.date).toISOString(), // Convert to ISO string
-          startTime: new Date(slot.startTime).toLocaleString("en-US"), // Format start time
-          endTime: new Date(slot.endTime).toLocaleString("en-US"), // Format end time
-        }));
+        const slots = await getAllSlots(context.user.id);
+
+        return slots.map(formatSlot);
       } catch (err) {
         throw new Error(err.message);
       }
     },
 
-    getSlotById: async (_, { id }) => {
+    getSlotById: async (_, { id }, context) => {
       try {
+        if (!context.user) {
+          throw new Error("Unauthorized");
+        }
+
         const slot = await getOneSlot(id);
 
         if (!slot) {
-          throw new Error('Slot not found');
+          throw new Error("Slot not found");
         }
 
-        return slot;
-      } catch (err) {
-        throw new Error(err.message);
-      }
-    },
-  },
+      
+        if (slot.userId !== context.user.id) {
+          throw new Error("Forbidden");
+        }
 
-  Mutation: {
-    createSlot: async (_, { userId, date, startTime, endTime }) => {
-      try {
-        return await createSlot(userId, date, startTime, endTime);
-      } catch (err) {
-        throw new Error(err.message);
-      }
-    },
-
-    updateSlot: async (_, { id, ...updates }) => {
-      try {
-        return await updateSlot(id, updates);
-      } catch (err) {
-        throw new Error(err.message);
-      }
-    },
-
-    deleteSlot: async (_, { id }) => {
-      try {
-        return await deleteSlot(id);
+        return formatSlot(slot);
       } catch (err) {
         throw new Error(err.message);
       }

@@ -10,13 +10,12 @@ const typeDefs = gql`
   }
 
   type Query {
-    getAvailability(userId: String!): [AvailabilitySlot]
+    getAvailability: [AvailabilitySlot]
     getSlotById(id: ID!): AvailabilitySlot
   }
 
   type Mutation {
     createSlot(
-      userId: String!
       date: String!
       startTime: String!
       endTime: String!
